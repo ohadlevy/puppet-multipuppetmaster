@@ -1,0 +1,38 @@
+Listen 8140
+
+ProxyRequests Off
+
+<Proxy balancer://<%= fqdn %>>
+    BalancerMember http://127.0.0.1:18140
+    BalancerMember http://127.0.0.1:18141
+    BalancerMember http://127.0.0.1:18142
+    BalancerMember http://127.0.0.1:18143
+</Proxy>
+
+<VirtualHost *:8140>
+    SSLEngine on
+    SSLCipherSuite          SSLv2:-LOW:-EXPORT:RC4+RSA
+    SSLCertificateFile      /var/lib/puppet/ssl/certs/<%= fqdn %>.pem
+    SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/<%= fqdn %>.pem
+    SSLCertificateChainFile /var/lib/puppet/ssl/certs/ca.pem
+    SSLCACertificateFile    /var/lib/puppet/ssl/certs/ca.pem
+#   SSLCARevocationFile     /var/lib/puppet/ssl/ca/ca_crl.pem
+    SSLVerifyClient         optional
+    SSLVerifyDepth          3
+    SSLOptions              +StdEnvVars
+
+    RequestHeader set X-SSL-Subject %{SSL_CLIENT_S_DN}e
+    RequestHeader set X-Client-DN %{SSL_CLIENT_S_DN}e
+    RequestHeader set X-Client-Verify %{SSL_CLIENT_VERIFY}e
+
+    <Location />
+       SetHandler balancer-manager
+       Order allow,deny
+       Allow from all
+    </Location>
+
+    ProxyPass         / balancer://<%= fqdn %>:8140/
+    ProxyPassReverse  / balancer://<%= fqdn %>:8140/
+    ProxyPreserveHost on
+
+</VirtualHost>

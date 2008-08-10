@@ -1,0 +1,115 @@
+#! /usr/bin/env ruby
+# fetch node profile from DNS txt record
+# evalute hostname and decide which default classes apply
+
+require 'yaml'
+
+# this variable describes the allowed puppet sites in Infineon.
+sitelist=%w{sitea siteb sitec}
+
+
+#Error checking
+
+if ARGV[0].nil? or not ARGV[0][/.*\.domain\.com/]
+  warn "Warning: This is part of the puppet infrastructure and should not be executed directly/manually."
+  warn "Usage: #{$0} hostname.FQDN"
+  exit 1
+end
+
+if ARGV[0].split('.')[1].length > 12
+  warn "Server name is not withing Naming standards, Maximum 11 chars are allowed"
+  exit 1
+end
+
+#fetch sitename from hostname 
+hostname = ARGV[0]
+site = hostname[0..2]
+
+#lets check that this is a valid site name
+
+unless sitelist.include?(site) 
+	warn "ERROR: Sorry, Site #{site.upcase} is not enabled for puppet use."
+	exit 1;
+end
+
+#Done error checking
+
+#Array to hold list of host class
+klass = Array.new
+
+#Hash to store parameters that are passed to puppet as variables
+parameter = Hash.new
+
+# server name standards are implemented here (nameklass must be a valid puppet klass!!!)
+
+# 3 characters 	 Site
+# 1 character 	Indicator for Operating System
+# 1  character 	Function Indicator
+# 3 characters 	Locally assigned - May include alpha and Numeric characters  
+
+# at this point, we are only looking at char 5 for the function.
+case hostname[4,1]
+	when 'l' 
+		nameklass='host-rd-login-server'
+	when 'c'
+		nameklass='host-rd-compute'
+	when 'i'	
+		nameklass='host-ldap-server'
+	when 'a'
+		nameklass='host-base'
+	when 'w'
+		nameklass='host-hybrid-client'
+	else
+		warn "ERROR: Your hostname do not follow the Infineon naming standards - aborting..."
+		exit 1
+end
+
+
+# query DNS for TXT records, first try system DNS server
+dns=`/usr/bin/host -t txt #{hostname} 2> /dev/null`
+if $? != 0  
+#lets try to contact the site DC if replication between DNS servers has not been completed, we need to cycle between all domains to find the right domain controller.
+	for domain in [site,'eu','ap','na'] do 
+		dns=`/usr/bin/host -t txt #{hostname} #{site}dns.#{domain}.domain.com 2> /dev/null`
+		exitcode = $?
+		break if exitcode == 0
+		dns=''
+	end
+	unless exitcode == 0 
+		warn "ERROR: Can't find DNS Entry for host #{hostname}."
+		exit 1
+	end
+end
+
+# check if any DNS txt record exists
+if dns.match(/descriptive text (.*)\n/) 
+	klass = dns.match(/descriptive text (.*)\n/)[1].gsub('"','').split 
+	# Note: you may not edit arrays as you iterate over them
+	filtered = Array.new
+	klass.each do |record|
+		case record
+			when /^host/
+				nameklass = record unless record =~ /^host-base/
+				filtered << record
+			when /^puppetmaster=/
+				parameter['puppetmaster'] = record.split('=')[1] 
+			when /test|development|production/
+				parameter['hostmode'] = record
+			else filtered << record
+		end			
+	end
+else
+	filtered = klass
+end
+# if hostname does not follow the naming standards, and no TXT record exist, exit.
+if filtered.nil? and nameklass.nil?
+	warn "ERROR: Puppet has no profile for this hostname, aborting..."
+	exit 1
+end
+
+filtered << nameklass unless filtered.include?(nameklass)
+parameter['hosttype'] = nameklass
+parameter['hostmode'] = 'production' if parameter['hostmode'].nil?
+parameter['puppetmaster'] = 'puppet' if parameter['puppetmaster'].nil?
+puts Hash['classes' => filtered, 'parameters' => parameter].to_yaml
+exit 0

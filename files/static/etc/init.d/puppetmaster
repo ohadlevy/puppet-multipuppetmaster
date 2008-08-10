@@ -1,0 +1,128 @@
+#!/bin/bash
+# puppetmaster  This shell script enables the puppetmaster server.
+#
+# Author:       Duane Griffin <d.griffin@psenterprise.com>
+#
+# chkconfig: - 65 45
+#
+# description: Server for the puppet system management tool.
+# processname: puppetmaster
+
+PATH=/usr/bin:/sbin:/bin:/usr/sbin
+export PATH
+
+lockfile=/var/lock/subsys/puppetmaster
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+if [ -f /etc/sysconfig/puppetmaster ]; then
+	. /etc/sysconfig/puppetmaster
+fi
+
+PUPPETMASTER_OPTS=""
+[ -n "$PUPPETMASTER_MANIFEST" ] && PUPPETMASTER_OPTS="--manifest=${PUPPETMASTER_MANIFEST}"
+[ -n "$PUPPETMASTER_LOG" ] && PUPPETMASTER_OPTS="${PUPPETMASTER_OPTS} --logdest=${PUPPETMASTER_LOG}"
+PUPPETMASTER_OPTS="${PUPPETMASTER_OPTS} \
+	${PUPPETMASTER_EXTRA_OPTS}"
+
+if( [ -n "$PUPPETMASTER_INSTANCES" ] && [ -n "$PUPPETMASTER_MASTERPORT" ]) 
+then
+	PUPPETMASTER_OPTS="${PUPPETMASTER_OPTS} --servertype=mongrel"
+else
+	PUPPETMASTER_INSTANCES=1
+	PUPPETMASTER_MASTERPORT=8140
+fi
+
+RETVAL=0
+
+prog=puppetmasterd
+PUPPETMASTER=/usr/sbin/$prog
+
+start() {
+	RETVAL=0
+	while [ $PUPPETMASTER_INSTANCES -gt 0 ]
+	do
+		echo -n $"Starting puppetmaster on port ${PUPPETMASTER_MASTERPORT}: "
+
+		PUPPETMASTER_PIDPORT="--pidfile=/var/run/puppet/puppetmasterd.${PUPPETMASTER_MASTERPORT}.pid \
+				      --masterport=${PUPPETMASTER_MASTERPORT}"
+		# Confirm the manifest exists
+		if [ -r $PUPPETMASTER_MANIFEST ]; then
+			daemon $PUPPETMASTER $PUPPETMASTER_OPTS $PUPPETMASTER_PIDPORT 
+			RETVAL=$?
+		else
+			failure $"Manifest does not exist: $PUPPETMASTER_MANIFEST"
+			echo
+			return 1
+		fi
+		[ $RETVAL -ne 0 ] && break
+		echo
+		PUPPETMASTER_INSTANCES=$(( ${PUPPETMASTER_INSTANCES} - 1 ))
+		PUPPETMASTER_MASTERPORT=$(( ${PUPPETMASTER_MASTERPORT} + 1 ))
+	done
+	[ $RETVAL -eq 0 ] && touch "$lockfile"
+	return $RETVAL
+}
+
+stop() {
+        RETVAL=0
+        while [ $PUPPETMASTER_INSTANCES -gt 0 ]
+        do
+		echo -n  $"Stopping puppetmaster on port: ${PUPPETMASTER_MASTERPORT}"
+		killproc -p /var/run/puppet/puppetmasterd.${PUPPETMASTER_MASTERPORT}.pid $PUPPETMASTER
+		RETVAL=$?
+		echo
+		[ $RETVAL -ne 0 ] && break
+		PUPPETMASTER_INSTANCES=$(( ${PUPPETMASTER_INSTANCES} - 1 ))
+                PUPPETMASTER_MASTERPORT=$(( ${PUPPETMASTER_MASTERPORT} + 1 ))
+	done
+	[ $RETVAL -eq 0 ] && rm -f "$lockfile"
+	return $RETVAL
+}
+
+statuscheck() {
+        RETVAL=0
+        while [ $PUPPETMASTER_INSTANCES -gt 0 ]
+        do
+		status -p /var/run/puppet/puppetmasterd.${PUPPETMASTER_MASTERPORT}.pid $PUPPETMASTER
+		RETVAL=$?
+		[ $RETVAL -ne 0 ] && break
+                PUPPETMASTER_INSTANCES=$(( ${PUPPETMASTER_INSTANCES} - 1 ))
+                PUPPETMASTER_MASTERPORT=$(( ${PUPPETMASTER_MASTERPORT} + 1 ))
+        done
+	return $RETVAL
+}
+
+restart() {
+  local INSTANCES=$PUPPETMASTER_INSTANCES
+  local MASTERPORT=$PUPPETMASTER_MASTERPORT
+  stop
+  PUPPETMASTER_MASTERPORT=$MASTERPORT
+  PUPPETMASTER_INSTANCES=$INSTANCES
+  start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop) 
+	stop
+	;;
+  restart|reload|force-reload)
+        restart
+	;;
+  condrestart)
+	[ -f "$lockfile" ] && restart
+	;;
+  status)
+	statuscheck
+        RETVAL=$?
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart}"
+	exit 1
+esac
+
+exit $RETVAL

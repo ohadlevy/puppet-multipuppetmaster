@@ -1,0 +1,60 @@
+LoadModule scgi_module modules/mod_scgi.so
+<VirtualHost *:80>
+ServerAdmin root
+ServerName <%= fqdn %>
+
+DocumentRoot /var/hostgui/public
+
+AddDefaultCharset UTF-8
+
+# Block general access to the system
+<Directory />
+  AllowOverride None
+  Options FollowSymLinks Indexes
+  Order Deny,Allow
+  Deny from all
+</Directory>
+
+# Handle all hostgui requests through SCGI
+SCGIMount / 127.0.0.1:9999
+# matches locations with a dot following at least one more characters, that is, things like   *.html, *.css, *.js, which should be delivered directly from the filesystem
+<LocationMatch \..+$>
+    # don't handle those with SCGI
+    SCGIHandler Off
+</LocationMatch>
+
+<Directory /var/hostgui/public/>
+Options +FollowSymLinks
+AllowOverride All
+Order allow,deny
+allow from all
+</Directory>
+
+# Grant access to puppet reports
+Alias /report /var/lib/puppet/rrd/
+<Directory /var/lib/puppet/rrd/>
+Options Indexes
+Order deny,allow
+Allow from all
+</Directory>
+
+# Grant access to the kickstart interface
+<Directory "/var/www/cgi-bin">
+Options +FollowSymLinks
+AllowOverride None
+Order allow,deny
+Allow from all
+</Directory>
+
+# Grant access to the GoldenImages
+Alias /opt/goldenimage_5   /opt/goldenimage_5
+Alias /opt/goldenimage_4.0 /opt/goldenimage_4.0
+Alias /opt/goldenimage_2.0 /opt/goldenimage_2.0
+Alias /opt/solgi	   /opt/solgi
+<DirectoryMatch            /opt/(solgi|goldenimage_[245]\.?0?)>
+Options FollowSymLinks Indexes
+AllowOverride None
+Order allow,deny
+Allow from all
+</DirectoryMatch>
+</VirtualHost>

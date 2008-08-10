@@ -1,0 +1,23 @@
+<VirtualHost *:80>
+ServerAdmin root
+ServerName <%= fqdn %>
+
+AddDefaultCharset UTF-8
+
+# Block general access to the system
+<Directory />
+  AllowOverride None
+  Options FollowSymLinks Indexes
+  Order Deny,Allow
+  Deny from all
+</Directory>
+
+# Grant access to puppet reports
+Alias /report /var/lib/puppet/rrd/
+<Directory /var/lib/puppet/rrd/>
+  Options Indexes
+  Order deny,allow
+  Allow from all
+</Directory>
+
+</VirtualHost>
