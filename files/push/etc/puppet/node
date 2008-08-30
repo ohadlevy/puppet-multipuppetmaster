@@ -4,10 +4,6 @@
 
 require 'yaml'
 
-# this variable describes the allowed puppet sites in Infineon.
-sitelist=%w{sitea siteb sitec}
-
-
 #Error checking
 
 if ARGV[0].nil? or not ARGV[0][/.*\.domain\.com/]
@@ -24,15 +20,6 @@ end
 #fetch sitename from hostname 
 hostname = ARGV[0]
 site = hostname[0..2]
-
-#lets check that this is a valid site name
-
-unless sitelist.include?(site) 
-	warn "ERROR: Sorry, Site #{site.upcase} is not enabled for puppet use."
-	exit 1;
-end
-
-#Done error checking
 
 #Array to hold list of host class
 klass = Array.new
@@ -60,7 +47,7 @@ case hostname[4,1]
 	when 'w'
 		nameklass='host-hybrid-client'
 	else
-		warn "ERROR: Your hostname do not follow the Infineon naming standards - aborting..."
+		warn "ERROR: Your hostname do not follow the naming standards - aborting..."
 		exit 1
 end
 

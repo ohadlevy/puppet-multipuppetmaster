@@ -52,7 +52,7 @@ class host-puppetmaster::hostgui inherits host-puppetmaster::apache {
 		}
 	}
 	subversion::svnserve { "hostgui$hostgui_stable_version":
-		source  => "svn+ssh://svn.klu.infineon.com/repos/AdminToolKit/$hostgui_path",
+		source  => "svn+ssh://svn/$hostgui_path",
 		path    => "/var/hostgui",
 		require => Pushmfiles["/root/.ssh/config"]
 	}

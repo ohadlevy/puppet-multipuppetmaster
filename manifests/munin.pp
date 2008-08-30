@@ -7,7 +7,7 @@ class host-puppetmaster::munin {
 		"munin_server": { 
 			$munin_server = $ipaddress
 			#extract all puppetmasters from puppet automaticilly - returns as an array to munin.conf template
-			$munin_managed = generate('/usr/bin/env', 'ruby', '-e', '%x{/bin/grep host-puppetmaster /var/lib/puppet/yaml/node/*|cut -f1 -d " "||sort|uniq}.gsub(/.*node\/(.*).....infineon.com.yaml:\n/) {|s| print "#{$1},"}.chop')
+			$munin_managed = generate('/usr/bin/env', 'ruby', '-e', '%x{/bin/grep host-puppetmaster /var/lib/puppet/yaml/node/*|cut -f1 -d " "||sort|uniq}.gsub(/.*node\/(.*).....domain.com.yaml:\n/) {|s| print "#{$1},"}.chop')
 
 			include munin::host 
 		}

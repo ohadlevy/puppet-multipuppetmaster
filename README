@@ -14,7 +14,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 
-This module manages all puppetmasters we have.
-It also manages also the puppet master of our puppetmaster - our puppeteer.
+This module manages the installation of puppetmasters.
+It also manages the puppet master of our puppetmaster - our puppeteer.
 
 it will not work for you out of the box, but you could probably use many parts in this module.
