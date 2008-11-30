@@ -1,0 +1,39 @@
+#! /bin/sh
+
+# this scripts assumes that the puppetmaster service has started already by normal init process
+# this scripts is used by monit, to restart processes which are abusing memory or do not responding
+
+# first arguments is: stop or start
+# second argument is: port used by this pupppetmaster process
+
+port=$2
+case $1 in
+	stop)
+		pid=`cat /var/run/puppet/puppetmasterd."$port".pid`
+		/bin/kill $pid
+		# wait until process exited - it might take a while...
+		timer=0
+		while [ ! -z `ps $pid > /dev/null` ]; do
+			if [ $timer -gt 15 ]; then
+				exit 1 # faild to stop
+			fi
+			sleep 0.3
+			let timer=timer+1
+	        done
+	;;
+	start)
+		params="--servertype=mongrel --pidfile=/var/run/puppet/puppetmasterd.$port.pid --masterport=$port"
+		/sbin/runuser -s /bin/bash - puppet -c "/usr/sbin/puppetmasterd $params"
+		EXIT_CODE=$?
+		sleep 0.5
+		exit $EXIT_CODE
+	;;
+	*)
+		echo ""
+		echo "Usage: "$0" stop/start port number"
+		echo "e.g.: "$0" stop 18143"
+		exit 1
+	;;
+esac
+
+

@@ -1,0 +1,17 @@
+<%=
+	require 'yaml'
+	# we return a list of productive puppetmasters to monitor in munin
+	puppetmasters = Array.new
+
+	# read all hosts with <site>la<###> (standard hostname for a puppetmaster)
+	Dir.glob('/var/lib/puppet/yaml/node/[a-z][a-z][a-z]la*.yaml').each do |host|
+	# load host information from yaml file
+		Puppet.info "verify #{host}"
+		node = YAML::load_file(host)
+		if node.parameters['environment'] =='global_puppetmaster' and node.classes.include?('host-puppetmaster') 
+			puppetmasters << node.parameters['hostname']
+		end 
+	end
+
+	puppetmasters.join(',')
+-%>

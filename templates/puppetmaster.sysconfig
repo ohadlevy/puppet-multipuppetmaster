@@ -10,7 +10,7 @@
 
 # The number of instances of puppetmaster that should be run
 # If this is more than one then mongrel and apache are required
-PUPPETMASTER_INSTANCES=4
+PUPPETMASTER_INSTANCES=<%= processorcount.to_i * 2 %>
 
 # The port on which instance one of the puppetmasters listens
 # when running under mongrel. Add one for each instance

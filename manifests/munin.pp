@@ -7,13 +7,25 @@ class host-puppetmaster::munin {
 		"munin_server": { 
 			$munin_server = $ipaddress
 			#extract all puppetmasters from puppet automaticilly - returns as an array to munin.conf template
-			$munin_managed = generate('/usr/bin/env', 'ruby', '-e', '%x{/bin/grep host-puppetmaster /var/lib/puppet/yaml/node/*|cut -f1 -d " "||sort|uniq}.gsub(/.*node\/(.*).....domain.com.yaml:\n/) {|s| print "#{$1},"}.chop')
+      $munin_managed = template("host-puppetmaster/monitored_hosts.erb")
 
-			include munin::host 
-		}
-	}
-	munin::plugin { [puppet_mem, puppet_clients]: ensure => "puppet_", config => "user root" }
-  file {"/usr/share/munin/plugins/puppet_": mode => 555, owner => root, group => root,
-		source => "puppet://$servername/host-puppetmaster/push/usr/share/munin/plugins/puppet_"
-	}
+      include munin::host 
+    }
+  }
+  # add some additional munin scripts (not enabled by default)
+  munin::plugin { "if_eth0":
+    ensure => "if_"
+  }
+  # add munin monitoring scripts for puppet
+  munin::plugin { [puppet_mem, puppet_clients]: 
+    ensure => "puppet_", 
+    config => "user root",
+    require => File["/usr/share/munin/plugins/puppet_"]
+  }
+    file {"/usr/share/munin/plugins/puppet_": 
+    mode => 555, owner => root, group => root,
+    source => "puppet://$servername/host-puppetmaster/push/usr/share/munin/plugins/puppet_",
+    before => Service["munin-node"],
+    require => Package["munin-node"]
+  }
 }

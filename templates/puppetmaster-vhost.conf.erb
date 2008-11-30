@@ -3,7 +3,7 @@ LoadModule scgi_module modules/mod_scgi.so
 ServerAdmin root
 ServerName <%= fqdn %>
 
-DocumentRoot /var/hostgui/public
+DocumentRoot /var/gini/public
 
 AddDefaultCharset UTF-8
 
@@ -15,19 +15,28 @@ AddDefaultCharset UTF-8
   Deny from all
 </Directory>
 
-# Handle all hostgui requests through SCGI
+# Handle all gini requests through SCGI
 SCGIMount / 127.0.0.1:9999
+SCGIServerTimeout 300
 # matches locations with a dot following at least one more characters, that is, things like   *.html, *.css, *.js, which should be delivered directly from the filesystem
 <LocationMatch \..+$>
     # don't handle those with SCGI
     SCGIHandler Off
 </LocationMatch>
 
-<Directory /var/hostgui/public/>
+<Directory /var/gini/public/>
 Options +FollowSymLinks
 AllowOverride All
 Order allow,deny
 allow from all
+</Directory>
+
+# Grant access to rdoc
+Alias /doc /var/gini/doc/app/
+<Directory /var/gini/doc/app/>
+Options Indexes
+Order deny,allow
+Allow from all
 </Directory>
 
 # Grant access to puppet reports
@@ -50,8 +59,9 @@ Allow from all
 Alias /opt/goldenimage_5   /opt/goldenimage_5
 Alias /opt/goldenimage_4.0 /opt/goldenimage_4.0
 Alias /opt/goldenimage_2.0 /opt/goldenimage_2.0
-Alias /opt/solgi	   /opt/solgi
-<DirectoryMatch            /opt/(solgi|goldenimage_[245]\.?0?)>
+Alias /opt/solgi_5.8	   /opt/solgi_5.8
+Alias /opt/solgi_5.10	   /opt/solgi_5.10
+<DirectoryMatch            /opt/(solgi_5\.8|solgi_5\.10|goldenimage_[245]\.?0?)>
 Options FollowSymLinks Indexes
 AllowOverride None
 Order allow,deny

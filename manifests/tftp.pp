@@ -1,6 +1,8 @@
 class host-puppetmaster::tftp {
 	include redhat::xinetd
-# Kickstart configuration is now via hostgui, no more using kickstart cgi
+# Tftp configuration
+	package {["tftp-server","syslinux"]:ensure => installed}
+	file{"/var/kickstart": ensure => directory, mode => 755}
 
 	package {"tftp-server":    ensure => installed}
 	package {"syslinux":       ensure => installed}

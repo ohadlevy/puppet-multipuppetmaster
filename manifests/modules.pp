@@ -1,9 +1,9 @@
-class host-puppetmaster::modules {
 # this class manages the module distribution to the different puppet masters world wide.
 # modifing this file might replace site puppetmaster manfiests - handle with care!
 
 # we are using module auto load, no need to specify import command per module anymore
 # please note that classname must be identical to module name (e.g. class =  ssh::common, modulename = ssh)
+class host-puppetmaster::modules {
 	file {"/etc/puppet/modules": ensure => directory}
 	Modules {require => File["/etc/puppet/modules"]}
 
@@ -38,13 +38,18 @@ class host-puppetmaster::modules {
 		require => Pushmfiles["/root/.ssh/config"]
 	}
 # directory that contains environment data
-	file { "/etc/puppet/env": ensure => directory }
+	file { "/etc/puppet/env": 
+		ensure => directory,
+		recurse => true, 
+		purge => true, 
+		force => true,
+	}
 
 	case $hostmode {
 		"development": {
 			file { "/etc/puppet/modules/development": ensure => directory, group => puppet, mode => 665 }
 			file { "/etc/puppet/modules/development/README": 
-				content => "you would need to checkout manually with your username, use:\ncd /etc/puppet/modules/development ; svn co http://svn/repos/repo/trunk/puppet/modules ."
+				content => "you would need to checkout manually with your username, use:\ncd /etc/puppet/modules/development ; svn co https://svn/repos/repo/trunk/puppet/modules ."
 			}
 		}
 		default: {

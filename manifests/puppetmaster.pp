@@ -1,5 +1,4 @@
 class host-puppetmaster::puppetmaster {
-	include mysql::server
 
 	Package {require => Yumrepo["addons"]}
 
@@ -25,7 +24,8 @@ class host-puppetmaster::puppetmaster {
 
 	file {"/etc/puppet/puppet.conf": mode => 640, owner => puppet, group => puppet, 
 				content => template("host-puppetmaster/puppet.conf"),
-				before => Service["puppetmaster"] ,require => Package["puppetmaster"] 
+				before  => Service["puppetmaster"],
+				require => Package["puppetmaster"],
 	}
 	case $hostmode {
 		"development": {
@@ -41,7 +41,14 @@ class host-puppetmaster::puppetmaster {
 				file        => "/etc/sysconfig/puppet",
 				line        => "PUPPET_SERVER=puppeteer.fqdn.com",
 				require     => Package["puppetmaster"],
-				before      => Service["puppetmaster"]}
+				before      => Service["puppetmaster"]
+			}
+      file { "/var/lib/puppet/ssl/ca/serial":
+        ensure => file,
+        mode  => 600,
+        group => "puppet",
+        owner => "puppet",
+      }
 		}
 	}
 	case $gi {
@@ -53,9 +60,9 @@ class host-puppetmaster::puppetmaster {
 				require => Package["puppetmaster"], 
 				before  => Service["puppetmaster"]
 			}
-			staticmfiles {"/etc/sysconfig/puppetmaster": 
+			file {"/etc/sysconfig/puppetmaster": 
 				mode    => 644, 
-				src     => "etc/sysconfig/puppetmaster",
+				content => template("host-puppetmaster/puppetmaster.sysconfig"),
 				notify  => Service["puppetmaster"],
 				require => Package["puppetmaster"], 
 				before  => Service["puppetmaster"]
@@ -81,17 +88,24 @@ class host-puppetmaster::puppetmaster {
 	file {"/etc/puppet/fileserver.conf": mode => 550, owner => root, group => puppet,
 		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/fileserver.conf", 
 		before => Service["puppetmaster"] }
-	file {"/etc/puppet/manifests": ensure => directory}
-	file {"/etc/puppet/manifests/site.pp": mode => 550, owner => root, group => puppet,
-		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/manifests/site.pp", 
-		before => Service["puppetmaster"] }
 # workaround until facts can be part of the modules - this should work with facter 1.5 and pupet 0.24.5
 	file {"/etc/puppet/facts":  mode => 550, owner => root, group => puppet,
 		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/facts", 
-		before => Service["puppetmaster"], recurse => true, ignore => ".svn" }
+		before => Service["puppetmaster"], recurse => true, ignore => ".svn", purge => "true" }
+	file {"/etc/puppet/manifests":  mode => 550, owner => root, group => puppet,
+		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/manifests", 
+		before => Service["puppetmaster"], recurse => true, ignore => ".svn", purge => "true" }
 	file {"/etc/puppet/tagmail.conf": ensure => present }
 
-# clean up old puppet files
-	file {["/etc/puppet/manifests/modules.pp"]: ensure => absent }
-	file {["/var/lib/puppet/files","/etc/puppetrevs","/etc/puppet/.svn"]: ensure => absent, force => true }
+	file { ["/var/lib/puppet/yaml", "/var/lib/puppet/yaml/facts", "/var/lib/puppet/yaml/node"]:
+    ensure => directory,
+    group => "puppet",
+    owner => "puppet",
+	}
+	file { "/var/lib/puppet/state":
+		ensure => directory,
+		owner   => "puppet",
+		group  => "puppet",
+		mode   => 1755,
+	}
 }

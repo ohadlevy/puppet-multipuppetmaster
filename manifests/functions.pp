@@ -19,3 +19,13 @@ define modules($site = "", $type = "", $module = "", $version = "") {
 			Subversion::Svnserve["sites"],Subversion::Svnserve["testing"]] 
  	}
 }
+define module_dir($type = "stable") {
+	file { $name: 
+		ensure => directory,
+		recurse => true,
+		purge => true,
+		force => true,
+		before => Subversion::Svnserve[$type] 
+	} 
+}
+

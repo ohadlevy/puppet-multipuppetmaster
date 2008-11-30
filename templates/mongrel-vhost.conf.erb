@@ -3,10 +3,9 @@ Listen 8140
 ProxyRequests Off
 
 <Proxy balancer://<%= fqdn %>>
-    BalancerMember http://127.0.0.1:18140
-    BalancerMember http://127.0.0.1:18141
-    BalancerMember http://127.0.0.1:18142
-    BalancerMember http://127.0.0.1:18143
+<% processorcount.to_i*2.times do |i| -%>
+    BalancerMember http://127.0.0.1:1814<%= i %>
+<% end %>
 </Proxy>
 
 <VirtualHost *:8140>

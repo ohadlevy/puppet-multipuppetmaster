@@ -1,3 +1,7 @@
+# This class manages apache configuration for the puppetmaster service
+# this includes, apache virtual host 
+# mongrel process
+
 class host-puppetmaster::apache inherits apache2::ssl {
 	User["apache"] { groups => "puppet" }
 	file {"/etc/httpd/conf.d/puppetmaster-vhost.conf":
@@ -18,7 +22,7 @@ class host-puppetmaster::apache inherits apache2::ssl {
 	}
 
 	file {"/etc/httpd/conf.d/mongrel-vhost.conf": 
-		content => template("host-puppetmaster/mongrel-vhost.conf.erb"), 
+		content => template("host-puppetmaster/mongrel-vhost.conf.erb"),
 		mode    => 644,
 		require => [Package["httpd"], Package["rubygem-mongrel"]],
 		before  => Service["httpd"]
@@ -31,6 +35,8 @@ class host-puppetmaster::apache inherits apache2::ssl {
 	}
 }
 
+# this class handles special options which are used differently on the
+# puppeteer 
 class host-puppetmaster::apache-puppeteer inherits host-puppetmaster::apache {
 	File ["/etc/httpd/conf.d/puppetmaster-vhost.conf"] {
 		content => template("host-puppetmaster/puppetmaster-vhost.conf.erb.puppeteer")
@@ -38,4 +44,6 @@ class host-puppetmaster::apache-puppeteer inherits host-puppetmaster::apache {
 	File ["/etc/httpd/conf.d/ssl.conf"] {
 		content => template("host-puppetmaster/ssl.conf.erb.puppeteer")
 	}
+	# no autosign on the puppeteer
+	file {"/etc/puppet/autosign.conf": ensure => absent} 
 }

@@ -20,6 +20,7 @@ end
 #fetch sitename from hostname 
 hostname = ARGV[0]
 site = hostname[0..2]
+#Done error checking
 
 #Array to hold list of host class
 klass = Array.new

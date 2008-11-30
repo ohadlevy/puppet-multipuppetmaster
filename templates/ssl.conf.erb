@@ -81,7 +81,7 @@ SSLCryptoDevice builtin
 <VirtualHost _default_:443>
 
 # General setup for the virtual host, inherited from global configuration
-DocumentRoot /var/hostgui/public
+DocumentRoot /var/gini/public
 ServerName <%= fqdn %>
 ErrorDocument 500 /500.html
 ErrorDocument 404 /404.html
@@ -92,7 +92,7 @@ SCGIMount / 127.0.0.1:9999
     # don't handle those with SCGI
     SCGIHandler Off
 </LocationMatch>
-<Directory /var/hostgui/public/>
+<Directory /var/gini/public/>
     Options +FollowSymLinks
     AllowOverride All
     Order allow,deny
