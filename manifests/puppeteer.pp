@@ -1,14 +1,7 @@
+# this file defines the modules used in the puppeeteer which configures the puppetmasters
 class host-puppetmaster::puppeteer_modules {
 
-# this file defines the modules used in the puppeeteer which configures the puppetmasters
-
-# please note that this variables also exists in host-puppetmaster::modules class, I didnt find a way to access the variables in both classes, 
-# therefor, if you change this below, make sure they match also to the definitions in modules.pp
-  $stable_module_path = "/etc/puppet/modules/stable"
-  $testing_module_path = "/etc/puppet/modules/testing"
-  $sites_module_path = "/etc/puppet/modules/sites"
-
-  module_dir { "/etc/puppet/env/global_puppetmaster":}
+	module_dir { "/etc/puppet/env/global_puppetmaster":}
 
 ##### Stable service modules ##### 
   modules { "PP-host-base": module => "host-base", site => "global_puppetmaster", type => "services", version => "0.12" }

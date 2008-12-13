@@ -1,10 +1,11 @@
 class host-puppetmaster::munin {
   case $hostname {
     default: { 
-      $munin_server = "123.123.123.123" # ip addr of munin server
-      include munin::client 
+      $munin_server = "1.2.3.4"
+      $munin_apache_ports = "80 443 8140"
+      include munin::client-apache
     }
-    "munin_server": { 
+    $puppeteer: { 
       $munin_server = $ipaddress
       #extract all puppetmasters from puppet automaticilly - returns as an array to munin.conf template
       $munin_managed = template("host-puppetmaster/monitored_hosts.erb")

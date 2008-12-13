@@ -4,13 +4,9 @@
 # we are using module auto load, no need to specify import command per module anymore
 # please note that classname must be identical to module name (e.g. class =  ssh::common, modulename = ssh)
 class host-puppetmaster::modules {
-  file {"/etc/puppet/modules": ensure => directory}
-  Modules {require => File["/etc/puppet/modules"]}
-
-  $stable_module_path = "/etc/puppet/modules/stable"
-  $testing_module_path = "/etc/puppet/modules/testing"
-  $sites_module_path = "/etc/puppet/modules/sites"
-  
+	file {"/etc/puppet/modules": ensure => directory}
+	Modules {require => File["/etc/puppet/modules"]}
+	
 #download latest version of site modules definition files
 #this is required as we want to keep it in trunk and not inside another module (which would require a retag)
   subversion::svnserve { "site_modules":

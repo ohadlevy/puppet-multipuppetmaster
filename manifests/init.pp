@@ -3,6 +3,13 @@
 # puppetmasters
 class host-puppetmaster inherits host-base {
   $modulename = "host-puppetmaster"
+  $puppeteer = "hostname"
+   
+  # Directories where modules are located
+  $stable_module_path = "/etc/puppet/modules/stable"
+  $testing_module_path = "/etc/puppet/modules/testing"
+  $sites_module_path = "/etc/puppet/modules/sites"
+
   import "*.pp"
   import "/etc/puppet/site_modules/site_modules.pp"
   include subversion::common
@@ -19,22 +26,22 @@ class host-puppetmaster inherits host-base {
       include host-puppetmaster::gini
       include host-puppetmaster::tftp
     }
-    "vihla005": {
+    $puppeteer: {
       include host-puppetmaster::apache-puppeteer
       include host-puppetmaster::puppeteer_modules
       pushmfiles {"/var/backup-databases":
         src     => "var/backup-databases",
         owner   => "root", group => "root",
-                    mode    => 700,
+        mode    => 700,
         recurse => true	
-            }
+      }
       cron {"backup-databases" :
               command => "/var/backup-databases/backup-databases",
               user    => root,
               minute  => 54,
-        hour    => 23,
-        require => Pushmfiles["/var/backup-databases"]
-            }
+              hour    => 23,
+              require => Pushmfiles["/var/backup-databases"]
+      }
     }
   }
   case $hostmode {

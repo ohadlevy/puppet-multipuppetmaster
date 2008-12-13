@@ -1,9 +1,10 @@
+<% if hostname == puppeteer%>LoadModule ssl_module modules/mod_ssl.so<% end %>
 Listen 8140
 
 ProxyRequests Off
 
 <Proxy balancer://<%= fqdn %>>
-<% processorcount.to_i*2.times do |i| -%>
+<% (processorcount.to_i*2).times do |i| -%>
     BalancerMember http://127.0.0.1:1814<%= i %>
 <% end %>
 </Proxy>
