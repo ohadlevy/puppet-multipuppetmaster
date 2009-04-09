@@ -23,9 +23,20 @@ class host-puppetmaster::munin {
     config => "user root",
     require => File["/usr/share/munin/plugins/puppet_"]
   }
-    file {"/usr/share/munin/plugins/puppet_": 
+  munin::plugin {"memcached" : 
+    ensure => "memcached", 
+    config => "HOST localhost\nport 11211",
+    require => File["/usr/share/munin/plugins/memcached"]
+  }
+  file {"/usr/share/munin/plugins/puppet_": 
     mode => 555, owner => root, group => root,
-    source => "puppet://$servername/host-puppetmaster/push/usr/share/munin/plugins/puppet_",
+    source => "puppet:///host-puppetmaster/push/usr/share/munin/plugins/puppet_",
+    before => Service["munin-node"],
+    require => Package["munin-node"]
+  }
+  file {"/usr/share/munin/plugins/memcached": 
+    mode => 555, owner => root, group => root,
+    source => "puppet:///host-puppetmaster/push/usr/share/munin/plugins/memcached",
     before => Service["munin-node"],
     require => Package["munin-node"]
   }

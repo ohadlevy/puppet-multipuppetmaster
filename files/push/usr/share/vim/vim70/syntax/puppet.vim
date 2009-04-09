@@ -2,11 +2,10 @@
 " Filename:     puppet.vim
 " Language:     puppet configuration file 
 " Maintainer:   Luke Kanies <luke@madstop.com>
-" URL:          http://reductivelabs.com/svn/puppet/trunk/ext/vim/puppet.vim
+" URL:          
 " Last Change: 
 " Version:      
 "
-" $Id$
 
 " Copied from the cfengine, ruby, and perl syntax files
 " For version 5.x: Clear all syntax items
@@ -22,6 +21,9 @@ syn keyword puppetDefType       class define site node inherits contained
 syn keyword puppetInherits      inherits contained
 syn region  puppetDefArguments  start="(" end=")" contains=puppetArgument
 syn match   puppetArgument      "\w\+" contained
+syn match   puppetArgument      "\$\w\+" contained
+syn match   puppetArgument      "'[^']+'" contained
+syn match   puppetArgument      '"[^"]+"' contained
 syn match   puppetDefName     "\w\+" contained
 
 syn match   puppetInstance           "\w\+\s*{" contains=puppetTypeBrace,puppetTypeName,puppetTypeDefault
@@ -47,6 +49,7 @@ syn keyword puppetControl    case default
 
 " comments last overriding everything else
 syn match   puppetComment            "\s*#.*$" contains=puppetTodo
+syn region  puppetComment            start="/\*" end="\*/" contains=puppetTodo extend
 syn keyword puppetTodo               TODO NOTE FIXME XXX contained
 
 " Define the default highlighting.
@@ -85,4 +88,3 @@ if version >= 508 || !exists("did_puppet_syn_inits")
 endif
 
 let b:current_syntax = "puppet"
-

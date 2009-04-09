@@ -1,0 +1,20 @@
+<%# find out which baud, port and arch we are on -%>
+<%
+unless (str = filename.match /.*-(i386|x86_64)(.*)/).nil?
+  arch = str[1]
+  unless (str = str[2].match /^-(.)-(.*)$/).nil?
+    port = str[1] 
+    baud = str[2]
+    console = "console=ttyS#{port},#{baud}"
+  end
+  ver = "#{version}.#{arch}"
+end
+
+unless port.nil? or baud.nil? -%>
+serial <%= port %> <%= baud %> 0
+<% end -%>
+default linux
+
+label linux
+        kernel boot/vmlinuz-gi<%= ver %>
+        append initrd=boot/initrd-gi<%= ver %> <%= console %> ks=http://<%= fqdn %>/kickstart ksdevice=eth0 network kssendmac

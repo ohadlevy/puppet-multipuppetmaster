@@ -23,8 +23,15 @@ class host-puppetmaster inherits host-base {
   # split the services that run on a regular puppetmaster and the puppeteer
   case $hostname {
     default: { 
-      include host-puppetmaster::gini
-      include host-puppetmaster::tftp
+      case $hostmode {
+        default: {
+          include host-puppetmaster::gini
+          include host-puppetmaster::tftp
+       }
+        "development": {
+          include host-puppetmaster::gini_disable 
+        }
+      } 
     }
     $puppeteer: {
       include host-puppetmaster::apache-puppeteer
@@ -36,17 +43,17 @@ class host-puppetmaster inherits host-base {
         recurse => true	
       }
       cron {"backup-databases" :
-              command => "/var/backup-databases/backup-databases",
-              user    => root,
-              minute  => 54,
-              hour    => 23,
-              require => Pushmfiles["/var/backup-databases"]
+        command => "/var/backup-databases/backup-databases",
+        user    => root,
+        minute  => 54,
+        hour    => 23,
+        require => Pushmfiles["/var/backup-databases"]
       }
     }
   }
   case $hostmode {
     "development": {
-            include host-puppetmaster::eclipse
+      include host-puppetmaster::eclipse
     }
     default: { 
       include host-puppetmaster::monit
@@ -71,12 +78,13 @@ class host-puppetmaster inherits host-base {
     mode => 644
   }
 
-  file {"/etc/puppet": ensure => directory, owner => "puppet", group => "puppet", mode => 550,
-    before => Service["puppetmaster"] }
+  file {"/etc/puppet": ensure => directory, 
+    owner => "puppet", group => "puppet", mode => 550,
+    before => Service["puppetmaster"]
+  }
   
   # disableing common services, which are not needed on a puppetmaster
-  service {
-  ["xfs","mdmonitor","lvm2-monitor","iptables","ip6tables","bluetooth"]:
+  service { ["xfs","mdmonitor","lvm2-monitor","iptables","ip6tables","bluetooth"]:
     ensure => stopped,
     enable => false
   }

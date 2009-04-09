@@ -20,37 +20,41 @@ class host-puppetmaster::puppetmaster {
 		require => Package["rubygem-RubyRRDtool"] 
 	}
 
-	group {"puppet": ensure => present, gid => 101} 
+	group {"puppet": ensure => present} 
 	user {"padm":
 		ensure   => present,
 		gid      => puppet,
 		home     => "/var/lib/puppet/files",
 		shell    => "/bin/bash",
 		password => '',
+		before   => Exec["authconfig"],
 		require  => Group["puppet"],
+		provider => "useradd",
 	}
 
-  file {"/etc/puppet/puppet.conf": mode => 640, owner => puppet, group => puppet, 
-        content => template("host-puppetmaster/puppet.conf"),
-        before  => Service["puppetmaster"],
-        require => Package["puppetmaster"],
-  }
-  case $hostmode {
-    "development": {
-      delete_lines { "No mail from development puppetmasters":
-        file => "/etc/puppet/tagmail.conf",
-        pattern => "store,rrdgraph,tagmail/store,rrdgraph"}
-    }
-    "production": {
-      append_if_no_such_line {"tagmail":
-        file => "/etc/puppet/tagmail.conf",
-        line => "all: email@domain.com"	}
-      append_if_no_such_line {"Point puppet at the puppeteer":
-        file        => "/etc/sysconfig/puppet",
-        line        => "PUPPET_SERVER=puppeteer.fqdn.com",
-        require     => Package["puppetmaster"],
-        before      => Service["puppetmaster"]
-      }
+	file {"/etc/puppet/puppet.conf": mode => 640, owner => puppet, group => puppet, 
+				content => template("host-puppetmaster/puppet.conf"),
+				before  => Service["puppetmaster"],
+				require => Package["puppetmaster"],
+	}
+	case $hostmode {
+		"development": {
+			include redhat::rpmbuild
+			delete_lines { "No mail from development puppetmasters":
+				file => "/etc/puppet/tagmail.conf",
+				pattern => "store,rrdgraph,tagmail/store,rrdgraph"}
+		}
+		"production": {
+			append_if_no_such_line {"tagmail":
+				file => "/etc/puppet/tagmail.conf",
+				line => "all: email@domain.com"	
+			}
+			append_if_no_such_line {"Point puppet at the puppeteer":
+				file        => "/etc/sysconfig/puppet",
+				line        => "PUPPET_SERVER=$puppeteer.vih.infineon.com",
+				require     => Package["puppetmaster"],
+				before      => Service["puppetmaster"]
+			}
       file { "/var/lib/puppet/ssl/ca/serial":
         ensure => file,
         mode  => 600,
@@ -66,14 +70,12 @@ class host-puppetmaster::puppetmaster {
 				src     => "etc/init.d/puppetmaster",
 				notify  => Service["puppetmaster"],
 				require => Package["puppetmaster"], 
-				before  => Service["puppetmaster"]
 			}
 			file {"/etc/sysconfig/puppetmaster": 
 				mode    => 644, 
 				content => template("host-puppetmaster/puppetmaster.sysconfig"),
 				notify  => Service["puppetmaster"],
 				require => Package["puppetmaster"], 
-				before  => Service["puppetmaster"]
 			}
 		}
 	}
@@ -109,11 +111,11 @@ class host-puppetmaster::puppetmaster {
     ensure => directory,
     group => "puppet",
     owner => "puppet",
-  }
-  file { "/var/lib/puppet/state":
-    ensure => directory,
-    owner   => "puppet",
-    group  => "puppet",
-    mode   => 1755,
-  }
+	}
+	file { "/var/lib/puppet/state":
+		ensure => directory,
+		owner   => "puppet",
+		group  => "puppet",
+		mode   => 1755,
+	}
 }

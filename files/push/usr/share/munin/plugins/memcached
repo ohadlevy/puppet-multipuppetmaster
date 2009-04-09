@@ -1,0 +1,23 @@
+#! /usr/bin/env ruby
+require 'rubygems'
+require 'memcache'
+
+if ENV['HOST'].nil? or ENV['PORT'].nil?
+  puts "Define a HOST and PORT!"
+  Kernel.exit(1)
+end
+
+server_str = ENV['HOST'] + ":" + ENV['PORT']
+
+if ARGV.first == "config"
+  puts "graph_title #{server_str} - items"
+  puts 'graph_category Memcached'
+  puts 'graph_vlabel Items'
+  puts 'curr_items.label Current items'
+  puts 'evictions.label Items ousted'
+else
+  mem = MemCache.new(server_str)
+  stats_hash = mem.stats[server_str]
+  puts "curr_items.value #{stats_hash['curr_items']}"
+  puts "evictions.value #{stats_hash['evictions']}"
+end
