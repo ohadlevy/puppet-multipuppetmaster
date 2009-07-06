@@ -1,0 +1,23 @@
+Listen 8443
+
+<VirtualHost <%= ipaddress %>:8443>
+	ServerName <%= fqdn %>
+	ServerAlias puppet
+	ServerAdmin email@domain.com
+
+	DocumentRoot /var/www/gateway
+	<Directory /var/www/gateway/>
+		Options +ExecCGI
+		PassengerEnabled off
+		AddHandler cgi-script .cgi
+		Order deny,allow
+		Allow from all # We allow everyone with a valid certificate to access the cgi
+	</Directory>
+
+	SSLEngine On
+	SSLCertificateFile      /var/lib/puppet/ssl/certs/<%= fqdn %>.pem
+	SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/<%= fqdn %>.pem
+	SSLCertificateChainFile /var/lib/puppet/ssl/certs/ca.pem
+	SSLCACertificateFile    /var/lib/puppet/ssl/certs/ca.pem
+	SSLVerifyClient         require
+</VirtualHost>
