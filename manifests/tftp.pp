@@ -5,8 +5,8 @@ class host-puppetmaster::tftp {
 
   package {["tftp-server","syslinux"]:ensure => installed}
 
-  pushmfiles {"/etc/xinetd.d/tftp":
-    src  => "etc/xinetd.d/tftp",
+  file {"/etc/xinetd.d/tftp":
+    source  => "puppet:///$modulename/push/etc/xinetd.d/tftp",
     mode => 644,
     require => [Package["tftp-server"], Package["xinetd"]],
     notify  => Service["xinetd"]
@@ -36,6 +36,7 @@ class host-puppetmaster::tftp {
   tftp_OS {"GI5-i": dest => "$tftp_dir/gi-install", version => "5", arch => "i386"}
   tftp_OS {"GI5-x": dest => "$tftp_dir/gi-install", version => "5", arch => "x86_64"}
   #tftp_OS {"GI8": type => "Solaris", dest => "$tftp_dir", version => "5.8", arch => "sparc"}
-  tftp_OS {"GI10": type => "Solaris", dest => "$tftp_dir", version => "5.10", arch => "sparc"}
-  #tftp_OS {"GI10-x86": type => "Solaris", dest => "$tftp_dir", version => "5.10", arch => "x86}
+  tftp_OS {"GI10-v": type => "Solaris", dest => "$tftp_dir", version => "5.10", arch => "SUN4V"}
+  tftp_OS {"GI10-u": type => "Solaris", dest => "$tftp_dir", version => "5.10", arch => "SUN4U"}
+  tftp_OS {"GI10-i86pc": type => "Solaris", dest => "$tftp_dir", version => "5.10", arch => "i86pc"}
 }

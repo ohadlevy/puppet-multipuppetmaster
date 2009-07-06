@@ -4,118 +4,115 @@
 # All customized facts
 # Puppet Email logging
 # RRDGraphs reports
+# Padm Account
 # Rpmbuild configuration on development machines
 
 class host-puppetmaster::puppetmaster {
 
-	Package {require => Yumrepo["addons"]}
+  include apache2::passenger
+  include host-puppetmaster::apache_in_puppet
+  $rackpath="/etc/puppet/rack/puppetmasterd"
+  Package {require => Yumrepo["addons"]}
 
-	package {"puppet-server": ensure => "0.24.4-1.el5", alias => puppetmaster }
-	package { [ "rrdtool", "rubygem-RubyRRDtool" ]:
-		ensure      => present,
-		before      => Service["puppetmaster"]
-	}
-	file {"/usr/lib/ruby/site_ruby/1.8/i386-linux/RRDtool.so": ensure => link,
-		target =>  "/usr/lib/ruby/gems/1.8/gems/RubyRRDtool-0.6.0/RRDtool.so",
-		require => Package["rubygem-RubyRRDtool"] 
-	}
+  package {"puppet-server": 
+    ensure => "installed", 
+    alias  => puppetmaster,
+    before => [Service["httpd"],Exec["gen_pm_cert"]],
+  }
+  # RRD reports
+  package { [ "rrdtool", "rubygem-RubyRRDtool" ]: ensure => present }
+  # fix incorrect load path
+  file {"/usr/lib/ruby/site_ruby/1.8/i386-linux/RRDtool.so": ensure => link,
+    target =>  "/usr/lib/ruby/gems/1.8/gems/RubyRRDtool-0.6.0/RRDtool.so",
+    require => Package["rubygem-RubyRRDtool"],
+    before => Service["httpd"],
+  }
 
-	group {"puppet": ensure => present} 
-	user {"padm":
-		ensure   => present,
-		gid      => puppet,
-		home     => "/var/lib/puppet/files",
-		shell    => "/bin/bash",
-		password => '',
-		before   => Exec["authconfig"],
-		require  => Group["puppet"],
-		provider => "useradd",
-	}
+  # the certificate needs to be gernated once before passanger can start
+  exec{"gen_pm_cert":
+    refreshonly => true,
+    command => "/bin/echo", # nothing for now
+    creates => "/var/lib/puppet/ssl/private_keys/$fqdn.pem",
+    before => Service["httpd"],
+  }
 
-	file {"/etc/puppet/puppet.conf": mode => 640, owner => puppet, group => puppet, 
-				content => template("host-puppetmaster/puppet.conf"),
-				before  => Service["puppetmaster"],
-				require => Package["puppetmaster"],
-	}
-	case $hostmode {
-		"development": {
-			include redhat::rpmbuild
-			delete_lines { "No mail from development puppetmasters":
-				file => "/etc/puppet/tagmail.conf",
-				pattern => "store,rrdgraph,tagmail/store,rrdgraph"}
-		}
-		"production": {
-			append_if_no_such_line {"tagmail":
-				file => "/etc/puppet/tagmail.conf",
-				line => "all: email@domain.com"	
-			}
-			append_if_no_such_line {"Point puppet at the puppeteer":
-				file        => "/etc/sysconfig/puppet",
-				line        => "PUPPET_SERVER=$puppeteer.vih.infineon.com",
-				require     => Package["puppetmaster"],
-				before      => Service["puppetmaster"]
-			}
-      file { "/var/lib/puppet/ssl/ca/serial":
-        ensure => file,
-        mode  => 600,
-        group => "puppet",
-        owner => "puppet",
-      }
-		}
-	}
-	case $gi {
-		5: {
-			staticmfiles {"/etc/init.d/puppetmaster":    
-				mode    => 755, 
-				src     => "etc/init.d/puppetmaster",
-				notify  => Service["puppetmaster"],
-				require => Package["puppetmaster"], 
-			}
-			file {"/etc/sysconfig/puppetmaster": 
-				mode    => 644, 
-				content => template("host-puppetmaster/puppetmaster.sysconfig"),
-				notify  => Service["puppetmaster"],
-				require => Package["puppetmaster"], 
-			}
-		}
-	}
-	service {"puppetmaster": 
-		require    => [Package["puppetmaster"],Package["rubygem-mongrel"]],
-		before     => Service["httpd"],
-		enable     => true,
-		ensure     => running,
-		hasrestart => true,
-		hasstatus  => true
-	}
+  #TODO: inherit the normal puppet settings and override
+  # this template is a bit tricky, had to add code to read the manifest in order to generate the env... 
+  # for more details look inside the template, and see http://projects.reductivelabs.com/issues/show/2309
+  file {"/etc/puppet/puppet.conf": 
+    mode => 640, owner => puppet, group => puppet, 
+    content => template("host-puppetmaster/puppet.conf"),
+    before  => Service["httpd"],
+    require => Package["puppetmaster"],
+  }
 
-# Manage puppet configuration files
-	file {"/etc/puppet/node": mode => 550, owner => root, group => puppet,
-		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/node",
-		before => Service["puppetmaster"] }
-	file {"/etc/puppet/namespaceauth.conf": mode => 550, owner => root, group => puppet,
-		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/namespaceauth.conf", 
-		before => Service["puppetmaster"] }
-	file {"/etc/puppet/fileserver.conf": mode => 550, owner => root, group => puppet,
-		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/fileserver.conf", 
-		before => Service["puppetmaster"] }
-# workaround until facts can be part of the modules - this should work with facter 1.5 and pupet 0.24.5
-	file {"/etc/puppet/facts":  mode => 550, owner => root, group => puppet,
-		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/facts", 
-		before => Service["puppetmaster"], recurse => true, ignore => ".svn", purge => "true" }
-	file {"/etc/puppet/manifests":  mode => 550, owner => root, group => puppet,
-		source => "puppet://$servername/host-puppetmaster/push/etc/puppet/manifests", 
-		before => Service["puppetmaster"], recurse => true, ignore => ".svn", purge => "true" }
-	file {"/etc/puppet/tagmail.conf": ensure => present }
+  # Apache / Passenger setup 
+  file {"/etc/httpd/conf.d/puppetmaster.conf":
+    content => template("host-puppetmaster/puppetmaster-vhost.conf"),
+    before => Service["httpd"],
+    notify => Exec["reload-apache2"],
+  }
+  file{["/etc/puppet/rack",$rackpath,"$rackpath/public","$rackpath/tmp"]:
+    ensure => directory, owner => root, group => root, mode => 644 }
 
-	file { ["/var/lib/puppet/yaml", "/var/lib/puppet/yaml/facts", "/var/lib/puppet/yaml/node"]:
-    ensure => directory,
-    group => "puppet",
-    owner => "puppet",
-	}
-	file { "/var/lib/puppet/state":
-		ensure => directory,
-		owner   => "puppet",
-		group  => "puppet",
-		mode   => 1755,
-	}
+  file{"$rackpath/config.ru":
+    owner => puppet, # important, this sets which user execute the pm service
+    group => puppet, mode  => 644,
+    content => template("host-puppetmaster/config.ru"),
+    notify => Exec["restart_pm"],
+    before => Service["httpd"],
+  } 
+  exec{"restart_pm":
+    command => "/bin/touch $rackpath/tmp/restart.txt",
+    refreshonly => true,
+    require => File["$rackpath/tmp"],
+  }
+  # cant use native init script status as it find the passenger process
+  service {"puppetmaster": 
+    before     => Service["httpd"],
+    enable     => false,
+    ensure     => stopped,
+    hasstatus  => false,
+    pattern    => "/usr/sbin/puppetmasterd",
+  }
+
+  if $hostmode == "production" {
+    file { "/var/lib/puppet/ssl/ca/serial":
+      ensure => file,
+      mode  => 600,
+      group => "puppet",
+      owner => "puppet",
+    }
+  }
+
+  # Manage puppet configuration files
+  file {
+    "/etc/puppet":
+      mode => 550, owner => root, group => puppet,
+      source => "puppet:///$modulename/push/etc/puppet",
+      before => Service["httpd"], recurse => true, ignore => ".svn", purge => "true";
+    "/etc/puppet/tagmail.conf":
+      content => $hostmode ? {
+        "production" => "all: email@domain.com",
+        default => "\n",
+      },
+      mode => 550, owner => root, group => puppet;
+    ["/var/lib/puppet/yaml", "/var/lib/puppet/yaml/facts", "/var/lib/puppet/yaml/node"]:
+      ensure => directory, mode => 750,
+      group => "puppet", owner => "puppet";
+    "/var/lib/puppet/state":
+      ensure => directory,
+      owner   => "puppet", group  => "puppet",
+      mode   => 1755;
+  }
+  # make sure that the old gini-scgi is disabled
+  service {"gini-scgi":
+    ensure => stopped,
+    enable => false,
+    before => Service["httpd"],
+  }
+
+}
+class host-puppetmaster::apache_in_puppet inherits apache2::ssl {
+    User["apache"] { groups => "puppet" }
 }

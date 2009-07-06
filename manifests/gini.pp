@@ -1,65 +1,61 @@
-class host-puppetmaster::gini inherits host-puppetmaster::apache {
-  Service["httpd"] { require +> File["/var/gini/public"] }
+class host-puppetmaster::gini inherits apache2::ssl {
+  $ginipath="/var/gini"
+  include apache2::passenger
 
-  Service {enable => true, ensure => running, hasstatus => true }
   Package {ensure => installed }
-  Pushmfiles {owner => root, group => root}
+  File {owner => root, group => root}
 
 # Gini configuration
 # Gini 1.3+ requires rubygems > 1.3
   package { "rubygems": ensure => "1.3.1-1.el5", require => Yumrepo["addons"] }
-
-  package {["rubygem-httpclient", "rubygem-rubyntlm", "rubygem-cmdparse", "rubygem-highline", 
+  package {["rubygem-rails","rubygem-httpclient", "rubygem-rubyntlm", "rubygem-cmdparse", "rubygem-highline", 
     "rubygem-cgi_multipart_eof_fix", "rubygem-chronic", "rubygem-memcache-client", "rubygem-ZenTest", 
     "rubygem-packet", "rubygem-rubyforge", "ruby-ldap", "ruby-mysql", "rubygem-curb", "libevent",
     "rubygem-rmagick", "jasper", "jasper-devel", "ImageMagick", "ImageMagick-devel", "rubygem-gruff" ]:
       require => Yumrepo["addons"],
-    before  => [Service["gini-scgi"], Service["gini-backgroundrb"]]
-  }
-# memcached
-  package {"memcached":
-    require => [Yumrepo["addons"], Package["libevent"]],
-    before  => Service["gini-scgi"]
-  }
-  service {"memcached":
-    require => [User["apache"], Package["memcached"], Pushmfiles["/etc/sysconfig/memcached"]],
-    notify  => Service["gini-scgi"]
-  }
-  pushmfiles {"/etc/sysconfig/memcached":
-    mode    => 644,
-    require => Package["memcached"],
-    src => "etc/sysconfig/memcached"
-  }
-# scgi_rails
-  package {"rubygem-scgi_rails":
-    require => [Yumrepo["addons"], Package["httpd"]],
-    notify  => Exec["Patch scgi_service"],
-    before  => Service["gini-scgi"]
-  }
-  exec {"Patch scgi_service":
-    command     => '/usr/bin/perl -p -i -e "s/ActiveRecord::Base.threaded_connections = false/ActiveRecord::Base.allow_concurrency = false/" /usr/lib/ruby/gems/1.8/gems/scgi_rails-0.4.3/bin/scgi_service',
-    refreshonly => true,
-    require     => Package["rubygem-scgi_rails"],
-  }
-  pushmfiles {"/usr/lib/httpd/modules/mod_scgi.so":
-    mode    => 755,
-    src     => "usr/lib/httpd/modules/mod_scgi.so.gi$gi.$architecture",
-    require => Package["httpd"],
-    before  => Service["httpd"]
-  }
-  pushmfiles {"/etc/init.d/gini-scgi":
-    mode   => 755,
-    src    => "etc/init.d/gini-scgi"
-  }
-  pushmfiles {"/etc/init.d/gini-backgroundrb":
-    mode   => 755,
-    src    => "etc/init.d/gini-backgroundrb"
-  }
-  pushmfiles {"/etc/sysconfig/scgi":
-    mode   => 600,
-    src    => "etc/sysconfig/scgi"
+      before  => [Service["httpd"], Service["gini-backgroundrb"]]
   }
 
+  file{"/etc/httpd/conf.d/gini.conf":
+    content => template("host-puppetmaster/gini-vhost.conf"),
+    mode => 644, notify => Exec["reload-apache2"],
+  }
+
+  package {"memcached":
+    require => [Yumrepo["addons"], Package["libevent"]],
+    before  => Service["httpd"]
+  }
+  service {"memcached":
+    require => [User["apache"], Package["memcached"], File["/etc/sysconfig/memcached"]],
+    notify  => Exec["restart_gini"]
+  }
+  file { "/etc/sysconfig/memcached":
+    mode    => 644,
+    require => Package["memcached"],
+    source => "puppet:///host-puppetmaster/push/etc/sysconfig/memcached";
+  }
+  munin::plugin {"memcached" : 
+    ensure => "memcached", 
+    config => "env.HOST localhost\nenv.port 11211",
+    require => File["/usr/share/munin/plugins/memcached"]
+  }
+  file {
+    "/usr/share/munin/plugins/memcached": 
+      mode => 555,
+      source => "puppet:///host-puppetmaster/push/usr/share/munin/plugins/memcached",
+      before => Service["munin-node"],
+      require => Package["munin-node"];
+    "/etc/monit.d/memcached.conf":
+      source  => "puppet:///host-puppetmaster/push/etc/monit.d/memcached.conf",
+      before  => Service["monit"];
+  }
+
+  exec{"restart_gini":
+    command => "/bin/touch $ginipath/tmp/restart.txt",
+    refreshonly => true
+  }
+
+# Gini code automatic distribution though subversion
   case $hostmode {
     "production" : { 
       $gini_path = "tags/gini"
@@ -71,83 +67,58 @@ class host-puppetmaster::gini inherits host-puppetmaster::apache {
     }
   }
   subversion::svnserve { "gini$gini_stable_version":
-    source  => "svn+ssh://svn.klu.infineon.com/repos/AdminToolKit/$gini_path",
-    path    => "/var/gini",
-    require => Pushmfiles["/root/.ssh/config"],
-    notify  => Service["gini-scgi"]
+    source  => "svn+ssh://svn/repos/AdminToolKit/$gini_path",
+    path    => "$ginipath",
+    require => File["/root/.ssh/config"],
+    notify  => [Exec["restart_gini"],Service["gini-backgroundrb"]],
+    before  => Service["httpd"],
   }
-  file {["/var/gini/public","/var/gini/log"]: 
-    owner => apache, 
-    recurse => true,
-    require => Subversion::Svnserve["gini$gini_stable_version"]
+  file {
+    "$ginipath/config/environment.rb":
+      owner => apache, # super important, this defines the users which runs Gini
+      before => Service["httpd"];
+    "$ginipath/public":
+      owner => apache, recurse => true, mode => 0440,
+      require => Subversion::Svnserve["gini$gini_stable_version"],
+      before => Service["httpd"];
+    "$ginipath/log":
+      owner => apache, recurse => true, mode => 0640,
+      ignore => ".svn",
+      before => Service["httpd"];
   }
 
-  append_if_no_such_line{"apache sudo":
-    file    => "/etc/sudoers",
-    line    => "apache ALL = NOPASSWD: /usr/sbin/puppetca",
-  }
-  append_if_no_such_line{"apache sudo tty":
-    file    => "/etc/sudoers",
-    line    => "Defaults:apache !requiretty",
+  append_if_no_such_line{
+    "apache sudo":
+      file    => "/etc/sudoers",
+      line    => "apache ALL = NOPASSWD: /usr/sbin/puppetca";
+    "apache sudo tty":
+      file    => "/etc/sudoers",
+      line    => "Defaults:apache !requiretty";
   }
 # allow gini to add entries to autosign
-  file {"/etc/puppet/autosign.conf": 
-    ensure  => file,
-    owner   => "apache",
-    group   => "puppet",
-    mode    => "644"
+  file {
+    "/etc/puppet/autosign.conf": 
+      ensure => file, owner => "apache", group => "puppet", mode => "644";
+    "$ginipath/tmp/pids":
+      ensure => directory, owner => apache, group => apache,
+      mode   => 775, require => Subversion::Svnserve["gini$gini_stable_version"];
+    "/tmp/puppetca.log":
+      ensure => file, owner => "apache", group  => "puppet",
+      mode   => "664", require => Service["httpd"];
   }
-  file {"/var/gini/tmp/pids":
-    ensure  => directory,
-    group   => apache,
-    mode    => 775,
-    require => Subversion::Svnserve["gini$gini_stable_version"]
-  }
-  file {"/var/gini/tmp/pids/backgroundrb_11006.pid":
-    ensure  => file,
-    group   => apache,
-    mode    => 664,
-    require => File["/var/gini/tmp/pids"]
-  }
-  file {"/tmp/puppetca.log":
-    ensure  => file,
-    owner   => "apache",
-    group   => "puppet",
-    mode    => "666",
-    require => Service["gini-scgi"]
-  }
-  service {"gini-scgi":
-    require    => [Exec["Patch scgi_service"], Subversion::Svnserve["gini$gini_stable_version"],
-               Pushmfiles["/usr/lib/httpd/modules/mod_scgi.so"], Pushmfiles["/etc/init.d/gini-scgi"], 
-               Pushmfiles["/etc/sysconfig/scgi"],File["/var/gini/public"],File["/var/gini/log"]],
-    ensure     => running,
-    enable     => true,
-    hasstatus  => true,
-    hasrestart => true
-  }
-  exec {"Set scgi mode":
-    command => "/bin/sed -i -r -e 's/^:env: .*/:env: $hostmode/' /var/gini/config/scgi.yaml",
-    unless  => "/bin/grep -E '^:env: $hostmode' /var/gini/config/scgi.yaml",
-    require => Subversion::Svnserve["gini$gini_stable_version"],
-    notify  => Service["gini-scgi"]
+  
+# background queue service
+  file {"/etc/init.d/gini-backgroundrb":
+    mode   => 755,
+    source => "puppet:///host-puppetmaster/push/etc/init.d/gini-backgroundrb"
   }
 
-# backgroundrb
   service {"gini-backgroundrb":
-    require    => [Subversion::Svnserve["gini$gini_stable_version"], File["/var/gini/tmp/pids"], 
-               Package["httpd"], Pushmfiles["/etc/init.d/gini-backgroundrb"]],
+    require    => [Subversion::Svnserve["gini$gini_stable_version"], File["$ginipath/tmp/pids"], 
+               Package["httpd"], File["/etc/init.d/gini-backgroundrb"]],
     ensure     => running,
     enable     => true,
     hasstatus  => true,
     hasrestart => true
-  }
-  package {"rubygem-rails": 
-    before  => [Service["puppetmaster"], Service["httpd"]],
-    require => Yumrepo["addons"]
-  }
-  file {["/etc/init.d/hostgui-scgi","/etc/init.d/hostgui-backgroundrb","/var/hostgui"]:
-    ensure => absent,
-    recurse => true,
-    force  => true,
   }
 }

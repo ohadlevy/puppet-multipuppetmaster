@@ -108,8 +108,8 @@ commonName = <%= fqdn %>
 #countryName = UK
 #stateOrProvinceName = Avon
 #localityName = Bristol
-#0.organizationName = infineon.com
-#emailAddress = paul.kelly@infineon.com
+#0.organizationName = domain.com
+#emailAddress = email@domain.com
 
 [ usr_cert ]
 
@@ -124,7 +124,7 @@ basicConstraints=CA:FALSE
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer:always
 
-nsCaRevocationUrl               = https://puppeteer.intra.infineon.com/ca_crl.pem
+nsCaRevocationUrl               = https://puppeteer/ca_crl.pem
 #nsBaseUrl
 #nsRevocationUrl
 #nsRenewalUrl
@@ -145,7 +145,7 @@ keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 basicConstraints = critical,CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage=critical,serverAuth,clientAuth,emailProtection
-subjectAltName=DNS:puppet, DNS:brsla033.brs.infineon.com
+subjectAltName=DNS:puppet, DNS:d@domain.com
 nsComment=Puppet Ruby/OpenSSL Generated Certificate
 subjectKeyIdentifier=hash
 

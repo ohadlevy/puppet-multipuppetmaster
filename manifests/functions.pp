@@ -1,33 +1,37 @@
 #Manages a site environment.
-define modules($site = "", $type = "", $module = "", $version = "") {
-	case $type {
-		default: { $modulepath = "/etc/puppet/env/$site" }
-		"testing": { $modulepath = "/etc/puppet/env/${site}_test" }
-	}	
-	case $type {
-		default:   { $src_module_path = "$stable_module_path/$type" }
-		"testing": { $src_module_path = "$testing_module_path" }
-		"site":    { $src_module_path = "$sites_module_path" }
-		"":        { $src_module_path = "$stable_module_path" }
-	}
-	case $version {
-		"": { $seperator = "" }
-		default: { $seperator = "_" }
-	}
-	file{"$modulepath/$module": ensure => link, target => "$src_module_path/$module$seperator$version",
-		require => [File[$modulepath],Subversion::Svnserve["stable"],
-			Subversion::Svnserve["sites"],Subversion::Svnserve["testing"]] 
- 	}
+define modules($env ="", $site = "", $type = "", $module, $version = "") {
+
+  # to support simple transition between the $site and $env 
+  $real_env =  $env ? { "" => $site, default => $env }
+
+  # note testing type refer only to testing modules, if a site wants to test a module, they should just use it
+  # in a testing env!
+  $modulepath = $type ? {
+    default => "/etc/puppet/env/$real_env",
+    "testing" => "/etc/puppet/env/${real_env}_test",
+  }
+
+  $src_module_path = $type ? {
+    default => "$stable_module_path/$type",
+    "testing" => $testing_module_path,
+    "site"    => $sites_module_path,
+    ""        => $stable_module_path,
+  }
+
+  $seperator = $version ? { "" => "", default => "_" }
+
+  file{"$modulepath/$module": ensure => link,
+    target => "$src_module_path/$module$seperator$version",
+    require => File[$modulepath],
+  }
 }
 
 define module_dir($type = "stable") {
-	file { $name: 
-		ensure => directory,
-		recurse => true,
-		purge => true,
-		force => true,
-		before => Subversion::Svnserve[$type] 
-	} 
+  file { $name:
+    ensure => directory, recurse => true,
+    purge => true, force => true,
+    before => File["/etc/puppet/puppet.conf"],
+  }
 }
 
 define pxe_file($dest, $version, $arch, $port = "", $baud = "") {
@@ -61,15 +65,18 @@ define tftp_OS($type = "RedHat", $dest, $version, $arch ) {
   }
 
   # set some defaults:
-  File{ mode => 444, require => Service["autofs"], links => follow, }
+  $path_prefix = $type ? { "RedHat" => "/opt/goldenimage_", "Solaris" => "/opt/solgi_"}
+  File{ mode => 444, links => follow, 
+    require => [Service["autofs"],Host-puppetmaster::Nfs::Mnt["${path_prefix}${version}"]],
+  }
 
   case $type {
     "RedHat": {
       file{"${dest}/boot/vmlinuz-gi${ver}.$arch":
-        source => "/opt/goldenimage_${version}/$arch${path}${install}/images/pxeboot/vmlinuz",
+        source => "${path_prefix}${version}/$arch${path}${install}/images/pxeboot/vmlinuz",
       }
       file{"${dest}/boot/initrd-gi${ver}.$arch":
-        source => "/opt/goldenimage_${version}/$arch${path}${install}/images/pxeboot/initrd.img",
+        source => "${path_prefix}${version}/$arch${path}${install}/images/pxeboot/initrd.img",
       }
       # setup pxelinux boot files w and without serial access
       pxe_file{"pxe-GI${ver}-$arch": arch => $arch, dest => "${dest}/pxelinux.cfg", version => $ver}
@@ -91,8 +98,17 @@ define tftp_OS($type = "RedHat", $dest, $version, $arch ) {
       }
     }
     "Solaris": {
-      file{"${dest}/inetboot.SUN4U.Solaris_${ver}":
-        source => "/opt/solgi_${version}/tftp/inetboot.SUN4U.Solaris_${ver}",
+      case $arch {
+        default: {
+          file{"${dest}/inetboot.${arch}.Solaris_${ver}":
+            source => "${path_prefix}${version}/tftp/inetboot.${arch}.Solaris_${ver}",
+          }
+        }
+        "i86pc": {
+          file{"${dest}/inetboot.SUNW.Solaris_10.i86pc":
+            source => "${path_prefix}${version}/tftp/SUNW.i86pc"
+          }
+        }
       }
     }
   }
