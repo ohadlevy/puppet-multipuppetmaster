@@ -26,10 +26,12 @@ class host-puppetmaster::modules {
   }
 # directory that contains actual puppet environments
   file { $env_path: 
-    ensure => directory,
-    recurse => true, 
-    purge => true, 
-    force => true,
+    ensure => directory, checksum => mtime,
+    source  => "puppet:///host-puppetmaster/empty",
+    recurse => true, purge => true, force => true,
+    mode    => 0644, owner => root, group => puppet,
+    ignore  => [".svn",".ignore"],
+    before => File["/etc/puppet/puppet.conf"],
   }
 
   case $hostmode {

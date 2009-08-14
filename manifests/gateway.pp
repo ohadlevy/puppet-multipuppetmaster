@@ -1,5 +1,6 @@
 # This class handles the variuos gateway functionallities (TFTP, PuppetCA, Puppetrun etc)
 class host-puppetmaster::gateway {
+  $modulename = "host-puppetmaster"
   File{ mode => 440, owner => root, group => apache, before => Service["httpd"] }
 
   file{

@@ -10,6 +10,7 @@
 class host-puppetmaster::puppetmaster {
 
   include apache2::passenger
+  include apache2::webalizer
   include host-puppetmaster::apache_in_puppet
   $rackpath="/etc/puppet/rack/puppetmasterd"
   Package {require => Yumrepo["addons"]}

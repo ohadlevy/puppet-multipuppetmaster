@@ -27,6 +27,11 @@ class host-puppetmaster::tftp {
     mode => 644, owner => root,
     require => [Package["syslinux"],File["$tftp_dir/gi-install"]],
   }
+  file {"$tftp_dir/gi-install/pxelinux.cfg/default":
+    content => "default local\ntimeout 20\n\nlabel local\n  localboot 0\n",
+    mode => 544, owner => root,
+    require => [Package["syslinux"],File["$tftp_dir/gi-install/pxelinux.cfg"]],
+  }
 
 # now setup all OS's required TFTP files
   tftp_OS {"GI2-i": dest => "$tftp_dir/gi-install", version => "2.0", arch => "i386"}

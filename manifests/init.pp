@@ -43,11 +43,11 @@ class host-puppetmaster inherits host-base {
       include host-puppetmaster::gateway
     } 
     else { # puppeteer
-      include host-puppetmaster::puppeteer_modules
       file {"/var/backup-databases":
         source     => "puppet:///$modulename/push/var/backup-databases",
         mode    => 700,
-        recurse => true	
+        recurse => true,
+        ignore => ".svn",
       }
       cron {"backup-databases" :
         command => "/var/backup-databases/backup-databases",
@@ -80,7 +80,9 @@ class host-puppetmaster inherits host-base {
   # disableing common services, which are not needed on a puppetmaster
   service {
     ["xfs","mdmonitor","lvm2-monitor","iptables","ip6tables","bluetooth",
-    "avahi-daemon","avahi-dnsconfd","conman","mcstrans","restorecond","rpcgssd","rpcidmapd"]:
+    "avahi-daemon","avahi-dnsconfd","conman","mcstrans","restorecond",
+    "arptables_jf","openibd","hidd","pcscd","hplip","rpcgssd",
+    "rhnsd","rpcidmapd","mysqld"]:
     ensure => stopped,
     enable => false
   }
